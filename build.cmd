@@ -1,6 +1,9 @@
 @echo off
 setlocal
 
+:: Ensure we're in the repo root (where build.cmd lives)
+cd /d "%~dp0"
+
 set DOTNET_NOLOGO=1
 set DOTNET_CLI_TELEMETRY_OPTOUT=1
 
@@ -29,6 +32,10 @@ pause
 exit /b 1
 
 :found_dotnet
+:: Tell MSBuild where the SDK lives
+for %%I in ("%DOTNET%") do set DOTNET_ROOT=%%~dpI
+set PATH=%DOTNET_ROOT%;%PATH%
+
 :: Verify a .NET 8 SDK is present
 "%DOTNET%" --list-sdks 2>nul | findstr /R "^8\." >nul
 if not errorlevel 1 goto :sdk_ok
@@ -38,6 +45,8 @@ echo.
 call :install_dotnet
 if errorlevel 1 goto :install_failed
 set DOTNET=%LOCALAPPDATA%\dotnet\dotnet.exe
+for %%I in ("%DOTNET%") do set DOTNET_ROOT=%%~dpI
+set PATH=%DOTNET_ROOT%;%PATH%
 
 :sdk_ok
 echo Using: %DOTNET%
@@ -46,17 +55,22 @@ echo.
 
 :: Restore packages first (separate step for clear error reporting)
 echo Restoring NuGet packages...
-"%DOTNET%" restore KubeTail\KubeTail.csproj --verbosity minimal
+"%DOTNET%" restore KubeTail\KubeTail.csproj
 if errorlevel 1 (
     echo.
-    echo RESTORE FAILED — check internet connection and NuGet access.
+    echo RESTORE FAILED
+    echo.
+    echo Troubleshooting:
+    echo   1. Check internet connection — can you reach https://api.nuget.org ?
+    echo   2. If behind a proxy, set HTTP_PROXY / HTTPS_PROXY environment variables
+    echo   3. Try running: "%DOTNET%" nuget list source
     pause
     exit /b 1
 )
 echo.
 
 :: Build and publish
-echo Building KubeTail...
+echo Publishing KubeTail...
 "%DOTNET%" publish KubeTail\KubeTail.csproj -c Release -o publish --no-restore
 if errorlevel 1 (
     echo BUILD FAILED
@@ -85,7 +99,6 @@ if errorlevel 1 (
     exit /b 1
 )
 del "%INSTALL_SCRIPT%" >nul 2>&1
-set PATH=%LOCALAPPDATA%\dotnet;%PATH%
 echo .NET 8 SDK installed successfully.
 echo.
 exit /b 0
