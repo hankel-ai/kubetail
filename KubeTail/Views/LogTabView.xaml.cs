@@ -197,7 +197,8 @@ public partial class LogTabView : UserControl
     private void ToggleNsPopup(object s, MouseButtonEventArgs e) { bool was = NsPopup.IsOpen; CloseAllPopups(); if (!was) NsPopup.IsOpen = true; e.Handled = true; }
     private void ToggleCtrlPopup(object s, MouseButtonEventArgs e) { bool was = CtrlPopup.IsOpen; CloseAllPopups(); if (!was) CtrlPopup.IsOpen = true; e.Handled = true; }
     private void TogglePodPopup(object s, MouseButtonEventArgs e) { bool was = PodPopup.IsOpen; CloseAllPopups(); if (!was) PodPopup.IsOpen = true; e.Handled = true; }
-    private void CloseAllPopups() { NsPopup.IsOpen = false; CtrlPopup.IsOpen = false; PodPopup.IsOpen = false; }
+    private void ToggleSmartLogPopup(object s, MouseButtonEventArgs e) { bool was = SmartLogPopup.IsOpen; CloseAllPopups(); if (!was) SmartLogPopup.IsOpen = true; e.Handled = true; }
+    private void CloseAllPopups() { NsPopup.IsOpen = false; CtrlPopup.IsOpen = false; PodPopup.IsOpen = false; SmartLogPopup.IsOpen = false; }
 
     // Only close popups when clicking outside them — don't intercept all mouse events
     protected override void OnMouseDown(MouseButtonEventArgs e)
@@ -208,12 +209,14 @@ public partial class LogTabView : UserControl
             CloseAllPopups();
     }
 
-    private bool AnyPopupOpen() => NsPopup.IsOpen || CtrlPopup.IsOpen || PodPopup.IsOpen;
+    private bool AnyPopupOpen() => NsPopup.IsOpen || CtrlPopup.IsOpen || PodPopup.IsOpen || SmartLogPopup.IsOpen;
 
     private bool IsClickInsidePopup(MouseButtonEventArgs e)
     {
         return IsOverPopup(NsPopup, e) || IsOverPopup(CtrlPopup, e) || IsOverPopup(PodPopup, e)
-            || IsOverElement(NsLabel, e) || IsOverElement(CtrlLabel, e) || IsOverElement(PodLabel, e);
+            || IsOverPopup(SmartLogPopup, e)
+            || IsOverElement(NsLabel, e) || IsOverElement(CtrlLabel, e) || IsOverElement(PodLabel, e)
+            || IsOverElement(SmartLogLabel, e);
     }
 
     private static bool IsOverPopup(System.Windows.Controls.Primitives.Popup p, MouseButtonEventArgs e)
@@ -228,6 +231,18 @@ public partial class LogTabView : UserControl
     {
         var pos = e.GetPosition(el);
         return pos.X >= 0 && pos.Y >= 0 && pos.X <= el.ActualWidth && pos.Y <= el.ActualHeight;
+    }
+
+    private void OpenSmartLogConfig(object sender, RoutedEventArgs e)
+    {
+        CloseAllPopups();
+        var mainVm = (MainViewModel)Window.GetWindow(this)!.DataContext;
+        var dlg = new SmartLogConfigDialog(mainVm.SmartLogDefinitions, mainVm.ConfigService)
+        {
+            Owner = Window.GetWindow(this)
+        };
+        if (dlg.ShowDialog() == true)
+            mainVm.ReloadSmartLogDefinitions();
     }
 
     private void ExportLog(object sender, RoutedEventArgs e)

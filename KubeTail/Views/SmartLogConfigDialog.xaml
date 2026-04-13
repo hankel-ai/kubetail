@@ -1,0 +1,117 @@
+<Window x:Class="KubeTail.Views.SmartLogConfigDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="SmartLog Definitions" Height="520" Width="800"
+        Background="#1E1E1E" WindowStartupLocation="CenterOwner"
+        MinWidth="700" MinHeight="400">
+    <DockPanel Margin="12">
+        <!-- Help text -->
+        <TextBlock DockPanel.Dock="Top" Foreground="#AAA" TextWrapping="Wrap" Margin="0,0,0,8" FontSize="11">
+            Configure log file tailing definitions. Each entry maps a controller to a log file path inside the pod.
+            Use * for wildcards in controller/container fields and file paths (e.g. /var/log/app/*.log).
+            Capital -F flag is always used so tailing continues if the file is replaced.
+        </TextBlock>
+
+        <!-- Bottom buttons -->
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
+                    HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button Content="Save" Style="{StaticResource AccentButton}" Width="80"
+                    Click="Save_Click" Margin="0,0,8,0" IsDefault="True"/>
+            <Button Content="Cancel" Style="{StaticResource FlatButton}" Width="80"
+                    IsCancel="True"/>
+        </StackPanel>
+
+        <!-- Add row -->
+        <Border DockPanel.Dock="Bottom" Background="#252526" CornerRadius="4" Padding="8" Margin="0,8,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.5*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="1.5*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="NewDescription" Grid.Column="0" Margin="0,0,4,0"
+                         Background="#333" Foreground="#CCC" BorderThickness="0" Padding="4,3"
+                         FontSize="11" Tag="Description..."/>
+                <TextBox x:Name="NewControllerKind" Grid.Column="1" Margin="0,0,4,0"
+                         Background="#333" Foreground="#CCC" BorderThickness="0" Padding="4,3"
+                         FontSize="11" Text="Deployment"/>
+                <TextBox x:Name="NewControllerName" Grid.Column="2" Margin="0,0,4,0"
+                         Background="#333" Foreground="#CCC" BorderThickness="0" Padding="4,3"
+                         FontSize="11" Tag="Controller name..."/>
+                <TextBox x:Name="NewContainerName" Grid.Column="3" Margin="0,0,4,0"
+                         Background="#333" Foreground="#CCC" BorderThickness="0" Padding="4,3"
+                         FontSize="11" Text="*"/>
+                <TextBox x:Name="NewLogFilePath" Grid.Column="4" Margin="0,0,4,0"
+                         Background="#333" Foreground="#CCC" BorderThickness="0" Padding="4,3"
+                         FontSize="11" FontFamily="Cascadia Mono,Consolas" Tag="/var/log/..."/>
+                <Button Grid.Column="5" Content="+ Add" Style="{StaticResource AccentButton}"
+                        Padding="8,3" Click="AddDefinition" FontSize="11"/>
+            </Grid>
+        </Border>
+
+        <!-- Column headers -->
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1.5*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="1.5*"/>
+                <ColumnDefinition Width="50"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="Description" Foreground="#D4A050" FontSize="11" FontWeight="Bold"/>
+            <TextBlock Grid.Column="1" Text="Kind" Foreground="#D4A050" FontSize="11" FontWeight="Bold"/>
+            <TextBlock Grid.Column="2" Text="Controller" Foreground="#D4A050" FontSize="11" FontWeight="Bold"/>
+            <TextBlock Grid.Column="3" Text="Container" Foreground="#D4A050" FontSize="11" FontWeight="Bold"/>
+            <TextBlock Grid.Column="4" Text="Log File Path" Foreground="#D4A050" FontSize="11" FontWeight="Bold"/>
+        </Grid>
+
+        <!-- Definition list -->
+        <ListBox x:Name="DefList" Background="#252526" BorderThickness="0"
+                 HorizontalContentAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="Padding" Value="0"/>
+                    <Setter Property="Margin" Value="0"/>
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Style.Resources>
+                        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#333"/>
+                        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#333"/>
+                    </Style.Resources>
+                </Style>
+            </ListBox.ItemContainerStyle>
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Grid Margin="0,1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.5*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="1.5*"/>
+                            <ColumnDefinition Width="50"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="{Binding Description}" Foreground="#CCC" FontSize="11"
+                                   Padding="4,3" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Grid.Column="1" Text="{Binding ControllerKind}" Foreground="#AAA" FontSize="11"
+                                   Padding="4,3"/>
+                        <TextBlock Grid.Column="2" Text="{Binding ControllerName}" Foreground="#AAA" FontSize="11"
+                                   Padding="4,3"/>
+                        <TextBlock Grid.Column="3" Text="{Binding ContainerName}" Foreground="#AAA" FontSize="11"
+                                   Padding="4,3"/>
+                        <TextBlock Grid.Column="4" Text="{Binding LogFilePath}" Foreground="#8DA" FontSize="11"
+                                   Padding="4,3" FontFamily="Cascadia Mono,Consolas" TextTrimming="CharacterEllipsis"/>
+                        <Button Grid.Column="5" Content="✕" FontSize="10" Foreground="#F88"
+                                Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                Click="RemoveDefinition" Tag="{Binding}" Padding="4,2"
+                                HorizontalAlignment="Center"/>
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </DockPanel>
+</Window>

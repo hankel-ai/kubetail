@@ -16,10 +16,13 @@ public partial class MainViewModel : ObservableObject
     public ObservableCollection<ClusterInfo> Clusters { get; } = new();
     public ObservableCollection<SavedTabProfile> SavedProfiles { get; } = new();
 
+    private List<SmartLogDefinition> _smartLogDefs = new();
+
     public MainViewModel()
     {
         LoadClusters();
         LoadProfiles();
+        _smartLogDefs = _config.GetSmartLogDefinitions();
         var lastProfile = _config.Load().LastProfileName;
         if (!string.IsNullOrEmpty(lastProfile))
             CurrentProfileName = lastProfile;
@@ -51,6 +54,7 @@ public partial class MainViewModel : ObservableObject
     private void AddTab()
     {
         var tab = new TabViewModel { Name = $"Tab {Tabs.Count + 1}" };
+        tab.SetSmartLogDefinitions(_smartLogDefs);
         Tabs.Add(tab);
         SelectedTab = tab;
     }
@@ -92,6 +96,7 @@ public partial class MainViewModel : ObservableObject
         foreach (var cfg in profile.Tabs)
         {
             var tab = new TabViewModel();
+            tab.SetSmartLogDefinitions(_smartLogDefs);
             tab.LoadConfig(cfg);
             Tabs.Add(tab);
 
@@ -140,4 +145,14 @@ public partial class MainViewModel : ObservableObject
     }
 
     public void SaveAllClusters() => _config.SaveClusters(Clusters.ToList());
+
+    public void ReloadSmartLogDefinitions()
+    {
+        _smartLogDefs = _config.GetSmartLogDefinitions();
+        foreach (var tab in Tabs)
+            tab.SetSmartLogDefinitions(_smartLogDefs);
+    }
+
+    public List<SmartLogDefinition> SmartLogDefinitions => _smartLogDefs;
+    public ConfigService ConfigService => _config;
 }

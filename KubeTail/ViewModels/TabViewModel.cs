@@ -27,16 +27,40 @@ public partial class FilterItem : ObservableObject
     public void SetSilent(bool val) { _suppress = true; IsChecked = val; _suppress = false; }
 }
 
+public partial class SmartLogPodItem : ObservableObject
+{
+    public string Pod { get; set; } = "";
+    public SmartLogDefinition Definition { get; set; } = new();
+    public LogSource Source { get; set; } = new();
+    public string DisplayText => Pod;
+    [ObservableProperty] private bool _isEnabled;
+    private readonly Action<SmartLogPodItem>? _onToggled;
+
+    public SmartLogPodItem(Action<SmartLogPodItem>? onToggled) { _onToggled = onToggled; }
+    partial void OnIsEnabledChanged(bool value) => _onToggled?.Invoke(this);
+}
+
+public class SmartLogGroupItem
+{
+    public SmartLogDefinition Definition { get; set; } = new();
+    public string DisplayText => $"{Definition.Description} — {Definition.LogFilePath}";
+    public string ControllerDisplay => $"{Definition.ControllerKind}/{Definition.ControllerName}";
+    public ObservableCollection<SmartLogPodItem> Pods { get; } = new();
+}
+
 public partial class TabViewModel : ObservableObject, IDisposable
 {
     private readonly KubeService _kube = new();
     private readonly BufferService _buffer = new();
     private readonly LogStreamService _streamer;
+    private readonly SmartLogStreamService _smartStreamer;
     private readonly DispatcherTimer _drainTimer;
     private readonly DispatcherTimer _newLineTimer;
     private CancellationTokenSource _cts = new();
     private readonly List<LogEntry> _allEntries = new();
     private DateTime _streamStartedAt;
+    private List<SmartLogDefinition> _smartLogDefs = new();
+    private List<SmartLogSelection>? _savedSmartLogSelections;
 
     [ObservableProperty] private string _name = "New Tab";
     [ObservableProperty] private bool _isFollowing = true;
@@ -64,6 +88,8 @@ public partial class TabViewModel : ObservableObject, IDisposable
     public ObservableCollection<FilterItem> FilterControllers { get; } = new();
     public ObservableCollection<FilterItem> FilterPodContainers { get; } = new();
 
+    public ObservableCollection<SmartLogGroupItem> SmartLogGroups { get; } = new();
+
     public ObservableCollection<LogEntry> FilteredEntries { get; } = new();
     public ObservableCollection<LogSource> Sources { get; } = new();
     public ObservableCollection<string> Errors { get; } = new();
@@ -82,7 +108,13 @@ public partial class TabViewModel : ObservableObject, IDisposable
     public TabViewModel()
     {
         _streamer = new LogStreamService(_kube, _buffer);
+        _smartStreamer = new SmartLogStreamService(_kube, _buffer);
         _streamer.OnError += msg =>
+        {
+            try { System.Windows.Application.Current?.Dispatcher.Invoke(() => Errors.Add(msg)); }
+            catch { }
+        };
+        _smartStreamer.OnError += msg =>
         {
             try { System.Windows.Application.Current?.Dispatcher.Invoke(() => Errors.Add(msg)); }
             catch { }
@@ -170,7 +202,7 @@ public partial class TabViewModel : ObservableObject, IDisposable
                 FilterControllers.Add(ctrlItem);
             }
 
-            var cc = e.ControllerContainer;
+            var cc = e.PodContainer;
             if (_knownPodContainer.Add(cc))
             {
                 var pcItem = new FilterItem(cc, ScheduleRebuild);
@@ -191,6 +223,15 @@ public partial class TabViewModel : ObservableObject, IDisposable
             }
             _pcNamespace.TryAdd(cc, e.Namespace);
             _pcController.TryAdd(cc, ck);
+
+            // Update SmartLog groups with newly seen pods
+            if (!e.IsSmartLog && SmartLogGroups.Count > 0)
+            {
+                var src = Sources.FirstOrDefault(s =>
+                    s.Namespace == e.Namespace && s.ControllerKind == e.ControllerKind
+                    && s.ControllerName == e.Controller && s.ContainerName == e.Container);
+                UpdateSmartLogPods(ck, e.Namespace, e.Pod, src);
+            }
         }
 
         // Check if batch has entries older than the last displayed entry
@@ -234,7 +275,7 @@ public partial class TabViewModel : ObservableObject, IDisposable
             return false;
         if (FilterControllers.Count > 0 && !FilterControllers.Any(f => f.Name == e.ControllerKey && f.IsChecked))
             return false;
-        if (FilterPodContainers.Count > 0 && !FilterPodContainers.Any(f => f.Name == e.ControllerContainer && f.IsChecked))
+        if (FilterPodContainers.Count > 0 && !FilterPodContainers.Any(f => f.Name == e.PodContainer && f.IsChecked))
             return false;
 
         foreach (var hw in HideWords)
@@ -385,6 +426,103 @@ public partial class TabViewModel : ObservableObject, IDisposable
         ScheduleRebuild();
     }
 
+    public void SetSmartLogDefinitions(List<SmartLogDefinition> defs)
+    {
+        _smartLogDefs = defs;
+        RefreshSmartLogGroups();
+    }
+
+    private void RefreshSmartLogGroups()
+    {
+        // Find which definitions match current sources
+        var existingControllers = Sources
+            .Select(s => $"{s.ControllerKind}/{s.ControllerName}")
+            .ToHashSet();
+
+        // Track existing groups to avoid re-creating them
+        var existingGroupIds = SmartLogGroups.Select(g => g.Definition.Id).ToHashSet();
+        var matchingIds = new HashSet<string>();
+
+        foreach (var def in _smartLogDefs)
+        {
+            // Check if any source matches this definition
+            bool matches = Sources.Any(s => SmartLogMatchesSource(def, s));
+            if (!matches) continue;
+
+            matchingIds.Add(def.Id);
+
+            if (existingGroupIds.Contains(def.Id))
+                continue; // already have this group
+
+            var group = new SmartLogGroupItem { Definition = def };
+            SmartLogGroups.Add(group);
+        }
+
+        // Remove groups whose definitions no longer match sources
+        for (int i = SmartLogGroups.Count - 1; i >= 0; i--)
+        {
+            if (!matchingIds.Contains(SmartLogGroups[i].Definition.Id))
+            {
+                // Stop any active streams for this group
+                foreach (var pod in SmartLogGroups[i].Pods.Where(p => p.IsEnabled))
+                    _smartStreamer.StopStream(pod.Definition, pod.Source, pod.Pod);
+                SmartLogGroups.RemoveAt(i);
+            }
+        }
+    }
+
+    internal void UpdateSmartLogPods(string controllerKey, string ns, string pod, LogSource? matchingSource)
+    {
+        foreach (var group in SmartLogGroups)
+        {
+            var def = group.Definition;
+            var src = matchingSource ?? Sources.FirstOrDefault(s => SmartLogMatchesSource(def, s)
+                && s.Namespace == ns);
+            if (src == null) continue;
+
+            if (!SmartLogMatchesSource(def, src)) continue;
+
+            // Check if this pod already exists in the group
+            if (group.Pods.Any(p => p.Pod == pod && p.Source.Namespace == ns))
+                continue;
+
+            var podItem = new SmartLogPodItem(OnSmartLogPodToggled)
+            {
+                Pod = pod,
+                Definition = def,
+                Source = src
+            };
+
+            // Restore saved selection state
+            if (_savedSmartLogSelections != null)
+            {
+                var saved = _savedSmartLogSelections.FirstOrDefault(
+                    s => s.DefinitionId == def.Id && s.Pod == pod);
+                if (saved != null && saved.IsEnabled)
+                    podItem.IsEnabled = true; // will trigger OnSmartLogPodToggled
+            }
+
+            group.Pods.Add(podItem);
+        }
+    }
+
+    private void OnSmartLogPodToggled(SmartLogPodItem item)
+    {
+        if (!IsStreaming) return;
+
+        if (item.IsEnabled)
+            _smartStreamer.StartStream(item.Definition, item.Source, item.Pod, _cts.Token);
+        else
+            _smartStreamer.StopStream(item.Definition, item.Source, item.Pod);
+    }
+
+    private static bool SmartLogMatchesSource(SmartLogDefinition def, LogSource src)
+    {
+        return (def.ControllerKind == "*" || def.ControllerKind.Equals(src.ControllerKind, StringComparison.OrdinalIgnoreCase))
+            && (def.ControllerName == "*" || def.ControllerName.Equals(src.ControllerName, StringComparison.OrdinalIgnoreCase))
+            && (def.ContainerName == "*" || def.ContainerName.Equals(src.ContainerName, StringComparison.OrdinalIgnoreCase));
+    }
+
     private void RebuildFilteredView()
     {
         _allEntries.Sort((a, b) => a.Timestamp.CompareTo(b.Timestamp));
@@ -424,6 +562,7 @@ public partial class TabViewModel : ObservableObject, IDisposable
         _buffer.RollingMaxLines = RollingMaxLines;
         _streamer.Settings = BuildSettings();
         IsStreaming = true;
+        RefreshSmartLogGroups();
         StatusText = OptFollow
             ? $"Streaming {Sources.Count} sources..."
             : $"Fetching {Sources.Count} sources...";
@@ -434,7 +573,7 @@ public partial class TabViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void StopStreaming()
     {
-        _cts.Cancel(); _streamer.StopAll();
+        _cts.Cancel(); _streamer.StopAll(); _smartStreamer.StopAll();
         IsStreaming = false;
         StatusText = $"Stopped. {LineCount} lines.";
     }
@@ -446,17 +585,33 @@ public partial class TabViewModel : ObservableObject, IDisposable
         FilterNamespaces.Clear(); FilterControllers.Clear(); FilterPodContainers.Clear();
         _knownNs.Clear(); _knownCtrl.Clear(); _knownPodContainer.Clear();
         _ctrlNamespaces.Clear(); _pcNamespace.Clear(); _pcController.Clear();
+        _smartStreamer.StopAll();
+        foreach (var g in SmartLogGroups)
+            g.Pods.Clear();
+        SmartLogGroups.Clear();
         LineCount = 0;
     }
 
-    public TabConfig ToConfig() => new()
+    public TabConfig ToConfig()
     {
-        Name = Name, Sources = Sources.ToList(), Settings = BuildSettings(),
-        BufferMode = BufferMode, RollingBufferMaxLines = RollingMaxLines,
-        UncheckedNamespaces = FilterNamespaces.Where(f => !f.IsChecked).Select(f => f.Name).ToList(),
-        UncheckedControllers = FilterControllers.Where(f => !f.IsChecked).Select(f => f.Name).ToList(),
-        UncheckedContainers = FilterPodContainers.Where(f => !f.IsChecked).Select(f => f.Name).ToList()
-    };
+        var cfg = new TabConfig
+        {
+            Name = Name, Sources = Sources.ToList(), Settings = BuildSettings(),
+            BufferMode = BufferMode, RollingBufferMaxLines = RollingMaxLines,
+            UncheckedNamespaces = FilterNamespaces.Where(f => !f.IsChecked).Select(f => f.Name).ToList(),
+            UncheckedControllers = FilterControllers.Where(f => !f.IsChecked).Select(f => f.Name).ToList(),
+            UncheckedContainers = FilterPodContainers.Where(f => !f.IsChecked).Select(f => f.Name).ToList()
+        };
+        foreach (var group in SmartLogGroups)
+            foreach (var pod in group.Pods.Where(p => p.IsEnabled))
+                cfg.SmartLogSelections.Add(new SmartLogSelection
+                {
+                    DefinitionId = group.Definition.Id,
+                    Pod = pod.Pod,
+                    IsEnabled = true
+                });
+        return cfg;
+    }
 
     public void LoadConfig(TabConfig cfg)
     {
@@ -469,6 +624,7 @@ public partial class TabViewModel : ObservableObject, IDisposable
         _savedUncheckedNs = cfg.UncheckedNamespaces.Count > 0 ? cfg.UncheckedNamespaces.ToHashSet() : null;
         _savedUncheckedCtrl = cfg.UncheckedControllers.Count > 0 ? cfg.UncheckedControllers.ToHashSet() : null;
         _savedUncheckedContainers = cfg.UncheckedContainers.Count > 0 ? cfg.UncheckedContainers.ToHashSet() : null;
+        _savedSmartLogSelections = cfg.SmartLogSelections.Count > 0 ? cfg.SmartLogSelections : null;
     }
 
     public KubeService KubeService => _kube;
@@ -481,6 +637,6 @@ public partial class TabViewModel : ObservableObject, IDisposable
     {
         _drainTimer.Stop(); _newLineTimer.Stop();
         try { _cts.Cancel(); } catch { }
-        _streamer.Dispose(); _buffer.Dispose(); _kube.Dispose();
+        _streamer.Dispose(); _smartStreamer.Dispose(); _buffer.Dispose(); _kube.Dispose();
     }
 }

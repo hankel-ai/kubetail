@@ -169,6 +169,59 @@
                         </StackPanel>
                     </Border>
                 </Popup>
+                <Separator Style="{x:Null}" Width="1" Background="#444" Margin="8,2"/>
+                <TextBlock Text="SmartLog ▾" Foreground="#D4A050" FontSize="11" Margin="4,0"
+                           VerticalAlignment="Center" Cursor="Hand" FontWeight="SemiBold"
+                           MouseLeftButtonDown="ToggleSmartLogPopup" x:Name="SmartLogLabel"/>
+                <Popup x:Name="SmartLogPopup" StaysOpen="True" Placement="Bottom" PlacementTarget="{Binding ElementName=SmartLogLabel}">
+                    <Border Background="#2D2D2D" BorderBrush="#8B6914" BorderThickness="1" Padding="6" MaxHeight="500" MinWidth="350">
+                        <StackPanel>
+                            <DockPanel Margin="0,0,0,4">
+                                <Button DockPanel.Dock="Right" Content="⚙ Configure" FontSize="10" Foreground="#D4A050"
+                                        Background="Transparent" BorderThickness="0" Cursor="Hand" Padding="4,1"
+                                        Click="OpenSmartLogConfig"/>
+                                <TextBlock Text="File Tailing" Foreground="#D4A050" FontSize="11" FontWeight="Bold"/>
+                            </DockPanel>
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="440">
+                                <ItemsControl ItemsSource="{Binding SmartLogGroups}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Margin="0,2,0,6">
+                                                <TextBlock Text="{Binding DisplayText}" Foreground="#D4A050" FontSize="11"
+                                                           FontWeight="SemiBold" Margin="0,0,0,1"/>
+                                                <TextBlock Text="{Binding ControllerDisplay}" Foreground="#888" FontSize="10"
+                                                           Margin="12,0,0,2"/>
+                                                <ItemsControl ItemsSource="{Binding Pods}" Margin="12,0,0,0">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <CheckBox IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                                                                      Content="{Binding DisplayText}"
+                                                                      Foreground="#CCC" Margin="2,1" FontSize="11"
+                                                                      FontFamily="Cascadia Mono,Consolas"/>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                            <TextBlock Text="No matching definitions for current sources" Foreground="#666" FontSize="10"
+                                       FontStyle="Italic" Margin="2,2,2,0">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SmartLogGroups.Count}" Value="0">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
+                    </Border>
+                </Popup>
             </WrapPanel>
         </Border>
 

@@ -50,4 +50,20 @@ public class ConfigService
     {
         var c = Load(); c.NamespaceExclusions = exclusions; Save(c);
     }
+
+    public List<SmartLogDefinition> GetSmartLogDefinitions()
+    {
+        var c = Load();
+        if (c.SmartLogDefinitions.Count == 0)
+        {
+            c.SmartLogDefinitions = SmartLogDefaults.Create();
+            Save(c);
+        }
+        return c.SmartLogDefinitions;
+    }
+
+    public void SaveSmartLogDefinitions(List<SmartLogDefinition> definitions)
+    {
+        var c = Load(); c.SmartLogDefinitions = definitions; Save(c);
+    }
 }

@@ -35,6 +35,27 @@ public class TabConfig
     public List<string> UncheckedNamespaces { get; set; } = new();
     public List<string> UncheckedControllers { get; set; } = new();
     public List<string> UncheckedContainers { get; set; } = new();
+    public List<SmartLogSelection> SmartLogSelections { get; set; } = new();
+}
+
+public class SmartLogDefinition
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString();
+    public string Description { get; set; } = "";
+    public string ControllerKind { get; set; } = "";
+    public string ControllerName { get; set; } = "";
+    public string ContainerName { get; set; } = "";
+    public string LogFilePath { get; set; } = "";
+    public bool IsBuiltIn { get; set; }
+
+    public string MatchKey => $"{ControllerKind}/{ControllerName}";
+}
+
+public class SmartLogSelection
+{
+    public string DefinitionId { get; set; } = "";
+    public string Pod { get; set; } = "";
+    public bool IsEnabled { get; set; }
 }
 
 public enum BufferMode { Unlimited, Rolling }

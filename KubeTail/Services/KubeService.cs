@@ -2,6 +2,7 @@ using k8s;
 using k8s.Models;
 using KubeTail.Models;
 using System.IO;
+using System.Net.WebSockets;
 
 namespace KubeTail.Services;
 
@@ -107,6 +108,17 @@ public class KubeService : IDisposable
             timestamps: s.Timestamps, tailLines: s.TailLines,
             cancellationToken: ct);
         return response.Body;
+    }
+
+    public async Task<WebSocket> ExecInPodAsync(
+        string ns, string pod, string container, string[] command, CancellationToken ct)
+    {
+        EnsureConnected();
+        return await _client!.WebSocketNamespacedPodExecAsync(
+            pod, ns, command,
+            container: container,
+            stderr: true, stdin: false, stdout: true, tty: false,
+            cancellationToken: ct);
     }
 
     private static (string Kind, string Name) ResolveController(V1Pod pod)

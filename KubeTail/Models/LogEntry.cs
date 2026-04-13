@@ -18,6 +18,11 @@ public partial class LogEntry : ObservableObject
     public string ControllerContainer => $"{Controller}/{Container}";
     public DateTime ArrivalTime { get; set; } = DateTime.UtcNow;
 
+    // SmartLog properties
+    public bool IsSmartLog { get; set; }
+    public string SmartLogDescription { get; set; } = "";
+    public string SmartLogFilePath { get; set; } = "";
+
     [ObservableProperty] private bool _isHighlighted;
     [ObservableProperty] private bool _isNew = true;
 }
