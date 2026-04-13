@@ -1,0 +1,147 @@
+<Window x:Class="KubeTail.Views.ConfigureSourcesDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:conv="clr-namespace:KubeTail.Converters"
+        Title="Configure Log Sources" Height="720" Width="1100"
+        Background="#1E1E1E" WindowStartupLocation="CenterOwner"
+        MinWidth="900" MinHeight="500">
+    <Window.Resources>
+        <conv:SourceColorConverter x:Key="SourceColor"/>
+        <Style x:Key="ColHeader" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#AAA"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+        </Style>
+        <!-- Item template: checkbox + clickable name -->
+        <DataTemplate x:Key="BrowseCheckTemplate">
+            <DockPanel Margin="1,1">
+                <CheckBox DockPanel.Dock="Left"
+                          IsChecked="{Binding IsChecked, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                          Checked="CheckBox_Changed" Unchecked="CheckBox_Changed"
+                          Tag="{Binding}"
+                          VerticalAlignment="Center" Margin="2,0,4,0"/>
+                <Border Background="Transparent" Cursor="Hand" MouseLeftButtonDown="ItemName_Click"
+                        Tag="{Binding}" Padding="2,1">
+                    <TextBlock Text="{Binding DisplayText}" Foreground="#CCC" FontSize="11"
+                               TextTrimming="CharacterEllipsis"/>
+                </Border>
+            </DockPanel>
+        </DataTemplate>
+        <!-- Container template: just checkbox, no browse -->
+        <DataTemplate x:Key="CheckOnlyTemplate">
+            <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                      Checked="CheckBox_Changed" Unchecked="CheckBox_Changed"
+                      Tag="{Binding}"
+                      Content="{Binding DisplayText}"
+                      Foreground="#CCC" Margin="2,1" FontSize="11"/>
+        </DataTemplate>
+    </Window.Resources>
+
+    <DockPanel Margin="10">
+        <!-- Status -->
+        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+            <ProgressBar DockPanel.Dock="Right" Width="80" Height="4" Margin="8,0,0,0"
+                         IsIndeterminate="{Binding IsLoading}" Background="#333"
+                         Foreground="#0078D4" BorderThickness="0"/>
+            <TextBlock Text="{Binding StatusText}" Foreground="#888" FontSize="11"
+                       VerticalAlignment="Center"/>
+        </DockPanel>
+
+        <!-- Bottom buttons -->
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
+                    HorizontalAlignment="Right" Margin="0,8,0,0">
+            <Button Content="OK" Style="{StaticResource AccentButton}" Width="80"
+                    Click="OK_Click" Margin="0,0,8,0"/>
+            <Button Content="Cancel" Style="{StaticResource FlatButton}" Width="80"
+                    IsCancel="True"/>
+        </StackPanel>
+
+        <!-- Selected sources -->
+        <Border DockPanel.Dock="Bottom" Background="#252526" CornerRadius="4"
+                Padding="8" Margin="0,8,0,0" MaxHeight="150"
+                Visibility="Collapsed"/>
+
+        <!-- Columns -->
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1.3*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="1.2*"/>
+                <ColumnDefinition Width="1.2*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Cluster (select only) -->
+            <DockPanel Grid.Column="0" Margin="0,0,4,0">
+                <TextBlock DockPanel.Dock="Top" Text="Cluster" Style="{StaticResource ColHeader}"/>
+                <ListBox ItemsSource="{Binding Clusters}" SelectedItem="{Binding SelectedCluster}"
+                         DisplayMemberPath="EndpointDisplay"
+                         Background="#252526" Foreground="#CCC" BorderThickness="0" FontSize="11">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Padding" Value="4,3"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                                            <ContentPresenter/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter Property="Background" Value="#094771"/>
+                                            </Trigger>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Background" Value="#2A2D2E"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                </ListBox>
+            </DockPanel>
+
+            <!-- Namespace -->
+            <DockPanel Grid.Column="1" Margin="4,0">
+                <TextBlock DockPanel.Dock="Top" Text="Namespace" Style="{StaticResource ColHeader}"/>
+                <Button DockPanel.Dock="Bottom" Content="⚙ Exclusions" Style="{StaticResource FlatButton}"
+                        FontSize="10" Padding="4,3" Click="ToggleExclusions" Margin="0,4,0,0"
+                        HorizontalAlignment="Left"/>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Background="#252526">
+                    <ItemsControl ItemsSource="{Binding Namespaces}"
+                                  ItemTemplate="{StaticResource BrowseCheckTemplate}"/>
+                </ScrollViewer>
+            </DockPanel>
+
+            <!-- Controller -->
+            <DockPanel Grid.Column="2" Margin="4,0">
+                <TextBlock DockPanel.Dock="Top" Text="Controller" Style="{StaticResource ColHeader}"/>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Background="#252526">
+                    <ItemsControl ItemsSource="{Binding Controllers}"
+                                  ItemTemplate="{StaticResource BrowseCheckTemplate}"/>
+                </ScrollViewer>
+            </DockPanel>
+
+            <!-- Pod -->
+            <DockPanel Grid.Column="3" Margin="4,0">
+                <TextBlock DockPanel.Dock="Top" Text="Pod" Style="{StaticResource ColHeader}"/>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Background="#252526">
+                    <ItemsControl ItemsSource="{Binding Pods}"
+                                  ItemTemplate="{StaticResource BrowseCheckTemplate}"/>
+                </ScrollViewer>
+            </DockPanel>
+
+            <!-- Container -->
+            <DockPanel Grid.Column="4" Margin="4,0">
+                <TextBlock DockPanel.Dock="Top" Text="Container" Style="{StaticResource ColHeader}"/>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Background="#252526">
+                    <ItemsControl ItemsSource="{Binding Containers}"
+                                  ItemTemplate="{StaticResource CheckOnlyTemplate}"/>
+                </ScrollViewer>
+            </DockPanel>
+
+        </Grid>
+    </DockPanel>
+</Window>

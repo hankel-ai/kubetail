@@ -1,0 +1,76 @@
+<Window x:Class="KubeTail.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:KubeTail.ViewModels"
+        xmlns:views="clr-namespace:KubeTail.Views"
+        Title="KubeTail — Kubernetes Log Viewer" Height="800" Width="1280"
+        Background="#1E1E1E" WindowStartupLocation="CenterScreen">
+    <Window.DataContext>
+        <vm:MainViewModel/>
+    </Window.DataContext>
+    <Window.Resources>
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#CCCCCC"/>
+        </Style>
+    </Window.Resources>
+    <DockPanel>
+        <!-- Top toolbar -->
+        <Border DockPanel.Dock="Top" Background="#2D2D2D" Padding="6,4">
+            <DockPanel>
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                    <TextBlock Text="KubeTail" FontSize="16" FontWeight="Bold" Foreground="#0078D4"
+                               VerticalAlignment="Center" Margin="4,0,16,0"/>
+                    <Button Content="＋ New Tab" Style="{StaticResource FlatButton}"
+                            Command="{Binding AddTabCommand}" Margin="0,0,4,0"/>
+                    <Button Content="🔧 Clusters" Style="{StaticResource FlatButton}"
+                            Click="OpenClusterManager" Margin="0,0,4,0"/>
+                    <Separator Style="{x:Null}" Width="1" Background="#444" Margin="8,2"/>
+                    <Button Content="💾 Save Profile" Style="{StaticResource FlatButton}"
+                            Click="SaveProfile" Margin="4,0,4,0"/>
+                    <ComboBox x:Name="ProfileCombo" Width="180" Margin="4,0"
+                              ItemsSource="{Binding SavedProfiles}"
+                              DisplayMemberPath="ProfileName"
+                              Background="#3C3C3C" Foreground="Black" BorderThickness="0"/>
+                    <Button Content="📂 Load" Style="{StaticResource FlatButton}"
+                            Click="LoadProfile" Margin="0,0,4,0"/>
+                    <Button Content="🗑" Style="{StaticResource FlatButton}"
+                            Click="DeleteProfile"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- Status bar -->
+        <Border DockPanel.Dock="Bottom" Background="#007ACC" Padding="8,3">
+            <DockPanel>
+                <TextBlock Foreground="White" FontSize="11">
+                    <Run Text="Tabs: "/><Run Text="{Binding Tabs.Count, Mode=OneWay}"/>
+                    <Run Text="  |  "/>
+                    <Run x:Name="SpinnerRun" Text="" FontFamily="Cascadia Mono,Consolas"/>
+                    <Run Text="{Binding SelectedTab.StatusText, Mode=OneWay, FallbackValue='Ready'}"/>
+                    <Run Text="  |  Lines: "/>
+                    <Run Text="{Binding SelectedTab.LineCount, Mode=OneWay, FallbackValue=0}"/>
+                </TextBlock>
+            </DockPanel>
+        </Border>
+
+        <!-- Tab control -->
+        <TabControl ItemsSource="{Binding Tabs}" SelectedItem="{Binding SelectedTab}"
+                    Background="#1E1E1E" BorderThickness="0">
+            <TabControl.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding Name}" Foreground="#CCC" VerticalAlignment="Center"/>
+                        <Button Content="✕" FontSize="10" Margin="8,0,0,0" Padding="4,1"
+                                Background="Transparent" Foreground="#888" BorderThickness="0"
+                                Cursor="Hand" Click="CloseTab" Tag="{Binding}"/>
+                    </StackPanel>
+                </DataTemplate>
+            </TabControl.ItemTemplate>
+            <TabControl.ContentTemplate>
+                <DataTemplate>
+                    <views:LogTabView/>
+                </DataTemplate>
+            </TabControl.ContentTemplate>
+        </TabControl>
+    </DockPanel>
+</Window>

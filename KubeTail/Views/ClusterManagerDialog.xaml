@@ -1,0 +1,37 @@
+<Window x:Class="KubeTail.Views.ClusterManagerDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Cluster Manager" Height="450" Width="700"
+        Background="#1E1E1E" WindowStartupLocation="CenterOwner">
+    <DockPanel Margin="12">
+        <TextBlock DockPanel.Dock="Top" Text="Saved Clusters" Foreground="#CCC"
+                   FontSize="14" FontWeight="Bold" Margin="0,0,0,4"/>
+        <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Foreground="#888" Margin="0,0,0,12" FontSize="11">
+            Add descriptions to your clusters. The description will be shown instead of the context name throughout the app.
+        </TextBlock>
+
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
+                    HorizontalAlignment="Right" Margin="0,8,0,0">
+            <Button Content="Refresh from kubeconfig" Style="{StaticResource FlatButton}"
+                    Click="Refresh_Click" Margin="0,0,8,0"/>
+            <Button Content="Save" Style="{StaticResource AccentButton}" Width="80"
+                    Click="Save_Click" Margin="0,0,8,0"/>
+            <Button Content="Cancel" Style="{StaticResource FlatButton}" Width="80"
+                    IsCancel="True"/>
+        </StackPanel>
+
+        <DataGrid x:Name="Grid" AutoGenerateColumns="False" Background="#252526"
+                  Foreground="#CCC" BorderThickness="0" RowBackground="#252526"
+                  AlternatingRowBackground="#2A2A2A" GridLinesVisibility="None"
+                  CanUserAddRows="False" HeadersVisibility="Column">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Context" Binding="{Binding ContextName}"
+                                    IsReadOnly="True" Width="160" Foreground="#CCC"/>
+                <DataGridTextColumn Header="Description (shown in app)" Binding="{Binding Description}"
+                                    Width="200" Foreground="#CCC"/>
+                <DataGridTextColumn Header="Server" Binding="{Binding ClusterServer}"
+                                    IsReadOnly="True" Width="*" Foreground="#888"/>
+            </DataGrid.Columns>
+        </DataGrid>
+    </DockPanel>
+</Window>

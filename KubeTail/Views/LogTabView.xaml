@@ -1,0 +1,261 @@
+<UserControl x:Class="KubeTail.Views.LogTabView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:KubeTail.Converters"
+             Background="#1E1E1E">
+    <UserControl.Resources>
+        <conv:SourceColorConverter x:Key="SourceColor"/>
+        <conv:NewLineBackgroundConverter x:Key="NewLineBg"/>
+        <conv:BoolToVisibilityConverter x:Key="BoolVis"/>
+        <conv:InverseBoolConverter x:Key="InvBool"/>
+        <conv:BoolToWrapConverter x:Key="BoolToWrap"/>
+    </UserControl.Resources>
+    <DockPanel>
+        <!-- Top: controls -->
+        <Border DockPanel.Dock="Top" Background="#252526" Padding="6,4">
+            <WrapPanel>
+                <Button Content="⚙ Sources" Style="{StaticResource AccentButton}"
+                        Click="ConfigureSources" Margin="0,0,8,0"/>
+                <Button Content="▶ Start" Style="{StaticResource FlatButton}"
+                        Command="{Binding StartStreamingCommand}"
+                        IsEnabled="{Binding IsStreaming, Converter={StaticResource InvBool}}"
+                        Margin="0,0,4,0"/>
+                <Button Content="⏹ Stop" Style="{StaticResource FlatButton}"
+                        Command="{Binding StopStreamingCommand}"
+                        IsEnabled="{Binding IsStreaming}" Margin="0,0,4,0"/>
+                <Button Content="🗑 Clear" Style="{StaticResource FlatButton}"
+                        Command="{Binding ClearLogCommand}" Margin="0,0,8,0"/>
+                <Separator Style="{x:Null}" Width="1" Background="#444" Margin="4,2"/>
+                <CheckBox Content="prefix" IsChecked="{Binding OptPrefix, Mode=TwoWay}"
+                          Foreground="White" Margin="6,0" VerticalAlignment="Center"/>
+                <CheckBox Content="timestamps" IsChecked="{Binding OptTimestamps, Mode=TwoWay}"
+                          Foreground="White" Margin="6,0" VerticalAlignment="Center"/>
+                <CheckBox Content="follow" IsChecked="{Binding OptFollow, Mode=TwoWay}"
+                          Foreground="White" Margin="6,0" VerticalAlignment="Center"/>
+                <CheckBox Content="wrap" IsChecked="{Binding OptWordWrap, Mode=TwoWay}"
+                          Foreground="White" Margin="6,0" VerticalAlignment="Center"/>
+                <CheckBox Content="auto-scroll" IsChecked="{Binding IsFollowing, Mode=TwoWay}"
+                          Foreground="White" Margin="6,0" VerticalAlignment="Center"/>
+                <TextBlock Text="tail:" Foreground="#888" VerticalAlignment="Center" Margin="8,0,2,0"/>
+                <TextBox Text="{Binding OptTailLines, UpdateSourceTrigger=PropertyChanged}"
+                         Width="50" Background="#333" Foreground="#CCC" BorderThickness="0"
+                         VerticalAlignment="Center" Padding="4,2"/>
+                <Separator Style="{x:Null}" Width="1" Background="#444" Margin="8,2"/>
+                <Button Content="⬆" Style="{StaticResource FlatButton}" Click="ScrollToTop"
+                        Padding="6,2" Margin="4,0" ToolTip="Top"/>
+                <Button Content="⬇" Style="{StaticResource FlatButton}" Click="ScrollToBottom"
+                        Padding="6,2" Margin="0,0,4,0" ToolTip="Bottom"/>
+                <TextBlock x:Name="BottomIndicator" Text="● BOTTOM" Foreground="#0A0"
+                           VerticalAlignment="Center" FontSize="10" FontWeight="Bold" Margin="4,0"/>
+                <Separator Style="{x:Null}" Width="1" Background="#444" Margin="8,2"/>
+                <Button Content="📥 Export" Style="{StaticResource FlatButton}" Click="ExportLog"/>
+            </WrapPanel>
+        </Border>
+
+        <!-- Search / Hide / Highlight -->
+        <Border DockPanel.Dock="Top" Background="#2D2D2D" Padding="6,3">
+            <WrapPanel>
+                <TextBlock Text="Search:" Foreground="#888" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                <TextBox Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         Width="220" Background="#333" Foreground="#CCC" BorderThickness="0"
+                         Padding="4,2" VerticalAlignment="Center"
+                         ToolTip="AND default. 'or' between words for OR. 'not word' to exclude."/>
+                <Separator Style="{x:Null}" Width="1" Background="#444" Margin="8,2"/>
+                <TextBlock Text="Hide:" Foreground="#888" VerticalAlignment="Center" Margin="4,0,4,0"/>
+                <TextBox x:Name="HideWordBox" Width="90" Background="#333" Foreground="#CCC"
+                         BorderThickness="0" Padding="4,2" VerticalAlignment="Center"
+                         KeyDown="HideWord_KeyDown"/>
+                <Button Content="+" Style="{StaticResource FlatButton}" Click="AddHideWord" Padding="4,2" Margin="2,0"/>
+                <ItemsControl ItemsSource="{Binding HideWords}">
+                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="#5C2020" CornerRadius="3" Padding="4,1" Margin="2,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding}" Foreground="#F88" FontSize="10"/>
+                                    <Button Content="✕" FontSize="8" Background="Transparent" Foreground="#F88"
+                                            BorderThickness="0" Cursor="Hand" Padding="4,0"
+                                            Command="{Binding DataContext.RemoveHideWordCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}"/>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Separator Style="{x:Null}" Width="1" Background="#444" Margin="8,2"/>
+                <TextBlock Text="Highlight:" Foreground="#888" VerticalAlignment="Center" Margin="4,0,4,0"/>
+                <TextBox x:Name="HighlightWordBox" Width="90" Background="#333" Foreground="#CCC"
+                         BorderThickness="0" Padding="4,2" VerticalAlignment="Center"
+                         KeyDown="HighlightWord_KeyDown"/>
+                <Button Content="+" Style="{StaticResource FlatButton}" Click="AddHighlightWord" Padding="4,2" Margin="2,0"/>
+                <ItemsControl ItemsSource="{Binding HighlightWords}">
+                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="#5C5C20" CornerRadius="3" Padding="4,1" Margin="2,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding}" Foreground="#FF0" FontSize="10"/>
+                                    <Button Content="✕" FontSize="8" Background="Transparent" Foreground="#FF0"
+                                            BorderThickness="0" Cursor="Hand" Padding="4,0"
+                                            Command="{Binding DataContext.RemoveHighlightWordCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}"/>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </WrapPanel>
+        </Border>
+
+        <!-- Filter dropdowns -->
+        <Border DockPanel.Dock="Top" Background="#252526" Padding="4,2">
+            <WrapPanel>
+                <TextBlock Text="Namespace ▾" Foreground="#AAA" FontSize="11" Margin="4,0"
+                           VerticalAlignment="Center" Cursor="Hand"
+                           MouseLeftButtonDown="ToggleNsPopup" x:Name="NsLabel"/>
+                <Popup x:Name="NsPopup" StaysOpen="True" Placement="Bottom" PlacementTarget="{Binding ElementName=NsLabel}">
+                    <Border Background="#2D2D2D" BorderBrush="#555" BorderThickness="1" Padding="6" MaxHeight="300" MinWidth="150">
+                        <StackPanel>
+                            <Button Content="Clear" FontSize="10" Foreground="#F88" Background="Transparent"
+                                    BorderThickness="0" Cursor="Hand" HorizontalAlignment="Left" Padding="2,1" Margin="2,0,2,3"
+                                    Command="{Binding ClearNamespaceFiltersCommand}"/>
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding FilterNamespaces}">
+                                    <ItemsControl.ItemTemplate><DataTemplate>
+                                        <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}" Content="{Binding Name}" Foreground="#CCC" Margin="2,1" FontSize="11"/>
+                                    </DataTemplate></ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </StackPanel>
+                    </Border>
+                </Popup>
+                <Separator Style="{x:Null}" Width="1" Background="#444" Margin="8,2"/>
+                <TextBlock Text="Controller ▾" Foreground="#AAA" FontSize="11" Margin="4,0"
+                           VerticalAlignment="Center" Cursor="Hand"
+                           MouseLeftButtonDown="ToggleCtrlPopup" x:Name="CtrlLabel"/>
+                <Popup x:Name="CtrlPopup" StaysOpen="True" Placement="Bottom" PlacementTarget="{Binding ElementName=CtrlLabel}">
+                    <Border Background="#2D2D2D" BorderBrush="#555" BorderThickness="1" Padding="6" MaxHeight="300" MinWidth="180">
+                        <StackPanel>
+                            <Button Content="Clear" FontSize="10" Foreground="#F88" Background="Transparent"
+                                    BorderThickness="0" Cursor="Hand" HorizontalAlignment="Left" Padding="2,1" Margin="2,0,2,3"
+                                    Command="{Binding ClearControllerFiltersCommand}"/>
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding FilterControllers}">
+                                    <ItemsControl.ItemTemplate><DataTemplate>
+                                        <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}" Content="{Binding Name}" Foreground="#CCC" Margin="2,1" FontSize="11"/>
+                                    </DataTemplate></ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </StackPanel>
+                    </Border>
+                </Popup>
+                <Separator Style="{x:Null}" Width="1" Background="#444" Margin="8,2"/>
+                <TextBlock Text="Container ▾" Foreground="#AAA" FontSize="11" Margin="4,0"
+                           VerticalAlignment="Center" Cursor="Hand"
+                           MouseLeftButtonDown="TogglePodPopup" x:Name="PodLabel"/>
+                <Popup x:Name="PodPopup" StaysOpen="True" Placement="Bottom" PlacementTarget="{Binding ElementName=PodLabel}">
+                    <Border Background="#2D2D2D" BorderBrush="#555" BorderThickness="1" Padding="6" MaxHeight="400" MinWidth="280">
+                        <StackPanel>
+                            <Button Content="Clear" FontSize="10" Foreground="#F88" Background="Transparent"
+                                    BorderThickness="0" Cursor="Hand" HorizontalAlignment="Left" Padding="2,1" Margin="2,0,2,3"
+                                    Command="{Binding ClearPodContainerFiltersCommand}"/>
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding FilterPodContainers}">
+                                    <ItemsControl.ItemTemplate><DataTemplate>
+                                        <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}" Content="{Binding Name}" Foreground="#CCC" Margin="2,1" FontSize="11" FontFamily="Cascadia Mono,Consolas"/>
+                                    </DataTemplate></ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </StackPanel>
+                    </Border>
+                </Popup>
+            </WrapPanel>
+        </Border>
+
+        <!-- Log display -->
+        <Grid>
+        <ListBox x:Name="LogList"
+                 ItemsSource="{Binding FilteredEntries}"
+                 Background="#1E1E1E" BorderThickness="0"
+                 Padding="0,0,0,20"
+                 SelectionMode="Extended"
+                 VirtualizingStackPanel.IsVirtualizing="True"
+                 VirtualizingStackPanel.VirtualizationMode="Recycling"
+                 VirtualizingStackPanel.ScrollUnit="Pixel"
+                 ScrollViewer.CanContentScroll="True"
+                 ScrollViewer.ScrollChanged="LogList_ScrollChanged"
+                 FontFamily="Cascadia Mono,Consolas,Courier New"
+                 FontSize="12"
+                 HorizontalContentAlignment="Stretch"
+                 PreviewMouseLeftButtonDown="LogList_PreviewLeftDown"
+                 PreviewMouseLeftButtonUp="LogList_PreviewLeftUp"
+                 MouseMove="LogList_MouseMove"
+                 PreviewMouseRightButtonDown="LogList_PreviewRightDown"
+                 PreviewMouseRightButtonUp="LogList_RightClick">
+            <ListBox.Style>
+                <Style TargetType="ListBox">
+                    <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding OptWordWrap}" Value="True">
+                            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </ListBox.Style>
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Border x:Name="EntryBorder" Padding="4,1">
+                        <Border.Background>
+                            <MultiBinding Converter="{StaticResource NewLineBg}">
+                                <Binding Path="IsNew"/>
+                                <Binding Path="IsHighlighted"/>
+                            </MultiBinding>
+                        </Border.Background>
+                        <TextBlock TextWrapping="{Binding DataContext.OptWordWrap, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToWrap}}">
+                            <Run Text="{Binding SourceTag, Mode=OneWay}"
+                                 Foreground="{Binding SourceTag, Converter={StaticResource SourceColor}}"
+                                 x:Name="PrefixRun"/>
+                            <Run Text=" "/>
+                            <Run Text="{Binding Timestamp, Mode=OneWay, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss.fff}'}"
+                                 Foreground="#99AACC" x:Name="TsRun"/>
+                            <Run Text=" "/>
+                            <Run Text="{Binding Message, Mode=OneWay}" Foreground="#CCC"/>
+                        </TextBlock>
+                    </Border>
+                    <DataTemplate.Triggers>
+                        <DataTrigger Binding="{Binding DataContext.OptPrefix, RelativeSource={RelativeSource AncestorType=ListBox}}" Value="False">
+                            <Setter TargetName="PrefixRun" Property="Text" Value=""/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding DataContext.OptTimestamps, RelativeSource={RelativeSource AncestorType=ListBox}}" Value="False">
+                            <Setter TargetName="TsRun" Property="Text" Value=""/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding IsNew}" Value="True">
+                            <Setter TargetName="EntryBorder" Property="BorderThickness" Value="3,0,0,0"/>
+                            <Setter TargetName="EntryBorder" Property="BorderBrush" Value="#40C080"/>
+                        </DataTrigger>
+                    </DataTemplate.Triggers>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="Padding" Value="0"/>
+                    <Setter Property="Margin" Value="0"/>
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Setter Property="Foreground" Value="#CCC"/>
+                    <Style.Resources>
+                        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#264F78"/>
+                        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#264F78"/>
+                        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="White"/>
+                    </Style.Resources>
+                </Style>
+            </ListBox.ItemContainerStyle>
+        </ListBox>
+        <Border x:Name="ToastOverlay" Background="#DD222222" CornerRadius="6" Padding="18,10"
+                HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                Margin="0,0,0,40" Visibility="Collapsed" IsHitTestVisible="False">
+            <TextBlock x:Name="ToastText" Foreground="#4FC3F7" FontSize="14" FontWeight="SemiBold"/>
+        </Border>
+        </Grid>
+    </DockPanel>
+</UserControl>
