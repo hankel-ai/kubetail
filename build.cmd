@@ -1,6 +1,9 @@
 @echo off
 setlocal
 
+set DOTNET_NOLOGO=1
+set DOTNET_CLI_TELEMETRY_OPTOUT=1
+
 taskkill /IM KubeTail.exe /F >nul 2>&1
 
 :: Find dotnet SDK
@@ -37,8 +40,24 @@ if errorlevel 1 goto :install_failed
 set DOTNET=%LOCALAPPDATA%\dotnet\dotnet.exe
 
 :sdk_ok
+echo Using: %DOTNET%
+"%DOTNET%" --version
+echo.
+
+:: Restore packages first (separate step for clear error reporting)
+echo Restoring NuGet packages...
+"%DOTNET%" restore KubeTail\KubeTail.csproj --verbosity minimal
+if errorlevel 1 (
+    echo.
+    echo RESTORE FAILED — check internet connection and NuGet access.
+    pause
+    exit /b 1
+)
+echo.
+
+:: Build and publish
 echo Building KubeTail...
-"%DOTNET%" publish KubeTail\KubeTail.csproj -c Release -o publish
+"%DOTNET%" publish KubeTail\KubeTail.csproj -c Release -o publish --no-restore
 if errorlevel 1 (
     echo BUILD FAILED
     pause
@@ -53,7 +72,7 @@ exit /b 0
 :install_dotnet
 set INSTALL_SCRIPT=%TEMP%\dotnet-install.ps1
 echo Downloading dotnet-install.ps1...
-powershell -NoProfile -Command "Invoke-WebRequest -Uri 'https://dot.net/v1/dotnet-install.ps1' -OutFile '%INSTALL_SCRIPT%'"
+powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://dot.net/v1/dotnet-install.ps1' -OutFile '%INSTALL_SCRIPT%'"
 if not exist "%INSTALL_SCRIPT%" (
     echo Failed to download install script.
     exit /b 1
