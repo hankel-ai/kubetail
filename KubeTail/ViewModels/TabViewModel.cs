@@ -271,12 +271,16 @@ public partial class TabViewModel : ObservableObject, IDisposable
 
     private bool PassesFilter(LogEntry e)
     {
-        if (FilterNamespaces.Count > 0 && !FilterNamespaces.Any(f => f.Name == e.Namespace && f.IsChecked))
-            return false;
-        if (FilterControllers.Count > 0 && !FilterControllers.Any(f => f.Name == e.ControllerKey && f.IsChecked))
-            return false;
-        if (FilterPodContainers.Count > 0 && !FilterPodContainers.Any(f => f.Name == e.PodContainer && f.IsChecked))
-            return false;
+        // SmartLog entries bypass namespace/controller/container dropdown filters
+        if (!e.IsSmartLog)
+        {
+            if (FilterNamespaces.Count > 0 && !FilterNamespaces.Any(f => f.Name == e.Namespace && f.IsChecked))
+                return false;
+            if (FilterControllers.Count > 0 && !FilterControllers.Any(f => f.Name == e.ControllerKey && f.IsChecked))
+                return false;
+            if (FilterPodContainers.Count > 0 && !FilterPodContainers.Any(f => f.Name == e.PodContainer && f.IsChecked))
+                return false;
+        }
 
         foreach (var hw in HideWords)
             if (!string.IsNullOrEmpty(hw) && (e.Message.Contains(hw, StringComparison.OrdinalIgnoreCase)
@@ -469,6 +473,28 @@ public partial class TabViewModel : ObservableObject, IDisposable
                 SmartLogGroups.RemoveAt(i);
             }
         }
+
+        // Populate pods from already-known entries
+        PopulateSmartLogPodsFromKnown();
+    }
+
+    private void PopulateSmartLogPodsFromKnown()
+    {
+        if (SmartLogGroups.Count == 0) return;
+
+        // Collect unique (namespace, controllerKey, pod, source) tuples from known entries
+        var seen = new HashSet<string>();
+        foreach (var e in _allEntries)
+        {
+            if (e.IsSmartLog) continue;
+            var key = $"{e.Namespace}/{e.ControllerKey}/{e.Pod}";
+            if (!seen.Add(key)) continue;
+
+            var src = Sources.FirstOrDefault(s =>
+                s.Namespace == e.Namespace && s.ControllerKind == e.ControllerKind
+                && s.ControllerName == e.Controller && s.ContainerName == e.Container);
+            UpdateSmartLogPods(e.ControllerKey, e.Namespace, e.Pod, src);
+        }
     }
 
     internal void UpdateSmartLogPods(string controllerKey, string ns, string pod, LogSource? matchingSource)
@@ -550,11 +576,22 @@ public partial class TabViewModel : ObservableObject, IDisposable
         TailLines = OptTailLines > 0 ? OptTailLines : null
     };
 
+    private void SnapshotFilterState()
+    {
+        var uncNs = FilterNamespaces.Where(f => !f.IsChecked).Select(f => f.Name).ToHashSet();
+        var uncCtrl = FilterControllers.Where(f => !f.IsChecked).Select(f => f.Name).ToHashSet();
+        var uncPc = FilterPodContainers.Where(f => !f.IsChecked).Select(f => f.Name).ToHashSet();
+        _savedUncheckedNs = uncNs.Count > 0 ? uncNs : null;
+        _savedUncheckedCtrl = uncCtrl.Count > 0 ? uncCtrl : null;
+        _savedUncheckedContainers = uncPc.Count > 0 ? uncPc : null;
+    }
+
     [RelayCommand]
     private async Task StartStreaming()
     {
         if (Sources.Count == 0) return;
         if (IsStreaming) StopStreaming();
+        SnapshotFilterState();
         ClearLog();
         _streamStartedAt = DateTime.UtcNow;
         _cts = new CancellationTokenSource();
