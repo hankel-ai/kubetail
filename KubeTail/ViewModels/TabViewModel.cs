@@ -597,6 +597,11 @@ public partial class TabViewModel : ObservableObject, IDisposable
 
     private void SnapshotFilterState()
     {
+        // Only overwrite saved state if filters are populated (i.e. we've been streaming).
+        // Otherwise preserve what LoadConfig set from the profile.
+        if (FilterNamespaces.Count == 0 && FilterControllers.Count == 0 && FilterPodContainers.Count == 0)
+            return;
+
         var uncNs = FilterNamespaces.Where(f => !f.IsChecked).Select(f => f.Name).ToHashSet();
         var uncCtrl = FilterControllers.Where(f => !f.IsChecked).Select(f => f.Name).ToHashSet();
         var uncPc = FilterPodContainers.Where(f => !f.IsChecked).Select(f => f.Name).ToHashSet();
