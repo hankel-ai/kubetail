@@ -271,8 +271,23 @@ public partial class TabViewModel : ObservableObject, IDisposable
 
     private bool PassesFilter(LogEntry e)
     {
-        // SmartLog entries bypass namespace/controller/container dropdown filters
-        if (!e.IsSmartLog)
+        if (e.IsSmartLog)
+        {
+            // SmartLog entries are shown only if their pod is still enabled in the SmartLog dropdown
+            bool podEnabled = false;
+            foreach (var g in SmartLogGroups)
+            {
+                if (g.Definition.LogFilePath != e.SmartLogFilePath) continue;
+                foreach (var p in g.Pods)
+                {
+                    if (p.Pod == e.Pod && p.Source.Namespace == e.Namespace && p.IsEnabled)
+                    { podEnabled = true; break; }
+                }
+                if (podEnabled) break;
+            }
+            if (!podEnabled) return false;
+        }
+        else
         {
             if (FilterNamespaces.Count > 0 && !FilterNamespaces.Any(f => f.Name == e.Namespace && f.IsChecked))
                 return false;
@@ -534,12 +549,16 @@ public partial class TabViewModel : ObservableObject, IDisposable
 
     private void OnSmartLogPodToggled(SmartLogPodItem item)
     {
-        if (!IsStreaming) return;
+        if (IsStreaming)
+        {
+            if (item.IsEnabled)
+                _smartStreamer.StartStream(item.Definition, item.Source, item.Pod, _cts.Token);
+            else
+                _smartStreamer.StopStream(item.Definition, item.Source, item.Pod);
+        }
 
-        if (item.IsEnabled)
-            _smartStreamer.StartStream(item.Definition, item.Source, item.Pod, _cts.Token);
-        else
-            _smartStreamer.StopStream(item.Definition, item.Source, item.Pod);
+        // Rebuild so SmartLog entries appear/disappear immediately
+        ScheduleRebuild();
     }
 
     private static bool SmartLogMatchesSource(SmartLogDefinition def, LogSource src)
