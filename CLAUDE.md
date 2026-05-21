@@ -19,6 +19,9 @@ dotnet build
 dotnet publish -c Release -o publish
 ```
 
+## Subprojects
+- `kube-shortcuts/` — separate Go module (Go 1.22+) that builds two standalone CLI exes (`l`, `e`) — kubectl logs / exec wrappers with current-namespace single-pod default and clean Ctrl+C handling. Builds via `kube-shortcuts/build.cmd` (auto-installs portable Go to `%LOCALAPPDATA%\kubetail-go\` if missing; no admin needed). Output defaults to `%USERPROFILE%\OneDrive\Programs\{l,e}.exe`, overridable via `OUT_DIR` env var.
+
 ## Project Structure
 ```
 kubetail/

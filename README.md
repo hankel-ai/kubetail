@@ -119,3 +119,39 @@ App settings are stored in `%APPDATA%/KubeTail/config.json` and include:
 - Saved tab profiles (sources, settings, filter state)
 - Namespace exclusion patterns
 - Window size and position
+
+---
+
+## Companion CLI tools: `l` and `e` (`kube-shortcuts/`)
+
+The `kube-shortcuts/` subfolder is a small Go module that builds two standalone Windows executables placed on PATH alongside KubeTail:
+
+- **`l`** — tail logs. With no args, follows all containers of the only pod in the current namespace (or every pod via `--all-pods` if there are multiple). With args, passes through to `kubectl logs --all-pods -f <args>`.
+- **`e`** — exec shell. With no args, drops into `bash` (falling back to `sh`) on the only pod in the current namespace. With args, runs `kubectl exec -it <args> -- bash` then sh.
+
+Both wrap kubectl and forward Ctrl+C cleanly — no `Terminate batch job (Y/N)?` prompt, because they're real `.exe` binaries instead of `.bat` files.
+
+### Requirements
+
+- **Go 1.22+** — used only at build time. The build script will offer to download a portable copy (`%LOCALAPPDATA%\kubetail-go\`, no admin required) if `go` isn't on PATH.
+- `kubectl` on PATH at runtime.
+
+### Build
+
+```cmd
+cd kube-shortcuts
+build.cmd
+```
+
+This is a separate build from the main `build.cmd` (which builds KubeTail.exe). By default it outputs to `%USERPROFILE%\OneDrive\Programs\l.exe` and `e.exe`; override by setting `OUT_DIR` before running.
+
+### Project structure
+
+```
+kube-shortcuts/
+  go.mod
+  build.cmd                          # detects/installs Go, builds both binaries
+  internal/kubeutil/kubeutil.go      # shared: Pods(), RunKubectl()
+  cmd/l/main.go                      # logs binary
+  cmd/e/main.go                      # exec binary
+```
