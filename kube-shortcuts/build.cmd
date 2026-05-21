@@ -82,6 +82,10 @@ set "PATH=%GO_PORTABLE%\go\bin;%PATH%"
 "%GO%" version
 echo.
 
+taskkill /IM l.exe /F >nul 2>&1
+taskkill /IM e.exe /F >nul 2>&1
+del "%OUT_DIR%\l.exe~" "%OUT_DIR%\e.exe~" >nul 2>&1
+
 echo Building l.exe and e.exe to %OUT_DIR% ...
 "%GO%" build -o "%OUT_DIR%\l.exe" .\cmd\l
 if errorlevel 1 (
