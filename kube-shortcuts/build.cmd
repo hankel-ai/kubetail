@@ -23,7 +23,7 @@ set "OUT_DIR="
 
 :prompt_outdir
 set "OUT_DIR=%USERPROFILE%\OneDrive\Programs"
-set /p "OUT_DIR=Output directory for l.exe and e.exe [%OUT_DIR%]: "
+set /p "OUT_DIR=Output directory for l.exe, e.exe and kk.exe [%OUT_DIR%]: "
 if "%OUT_DIR%"=="" (
     echo No directory entered. Aborting.
     exit /b 1
@@ -59,6 +59,16 @@ if not errorlevel 1 (
     set "GO=go"
     goto :found_go
 )
+if exist "%ProgramFiles%\Go\bin\go.exe" (
+    set "GO=%ProgramFiles%\Go\bin\go.exe"
+    set "PATH=%ProgramFiles%\Go\bin;%PATH%"
+    goto :found_go
+)
+if exist "%LOCALAPPDATA%\Programs\Go\bin\go.exe" (
+    set "GO=%LOCALAPPDATA%\Programs\Go\bin\go.exe"
+    set "PATH=%LOCALAPPDATA%\Programs\Go\bin;%PATH%"
+    goto :found_go
+)
 
 echo Go SDK not found on PATH and no portable install at %GO_PORTABLE%.
 echo.
@@ -84,9 +94,10 @@ echo.
 
 taskkill /IM l.exe /F >nul 2>&1
 taskkill /IM e.exe /F >nul 2>&1
-del "%OUT_DIR%\l.exe~" "%OUT_DIR%\e.exe~" >nul 2>&1
+taskkill /IM kk.exe /F >nul 2>&1
+del "%OUT_DIR%\l.exe~" "%OUT_DIR%\e.exe~" "%OUT_DIR%\kk.exe~" >nul 2>&1
 
-echo Building l.exe and e.exe to %OUT_DIR% ...
+echo Building l.exe, e.exe and kk.exe to %OUT_DIR% ...
 "%GO%" build -o "%OUT_DIR%\l.exe" .\cmd\l
 if errorlevel 1 (
     echo BUILD FAILED
@@ -99,11 +110,18 @@ if errorlevel 1 (
     pause
     exit /b 1
 )
+"%GO%" build -o "%OUT_DIR%\kk.exe" .\cmd\kk
+if errorlevel 1 (
+    echo BUILD FAILED
+    pause
+    exit /b 1
+)
 
 echo.
 echo Built:
 echo   %OUT_DIR%\l.exe
 echo   %OUT_DIR%\e.exe
+echo   %OUT_DIR%\kk.exe
 exit /b 0
 
 :install_portable_go
