@@ -126,7 +126,7 @@ App settings are stored in `%APPDATA%/KubeTail/config.json` and include:
 
 The `kube-shortcuts/` subfolder is a small Go module that builds two standalone Windows executables placed on PATH alongside KubeTail:
 
-- **`l`** — tail logs. With no args, follows all containers of the only pod in the current namespace (or every pod via `--all-pods` if there are multiple). With args, passes through to `kubectl logs --all-pods -f <args>`.
+- **`l`** — tail logs. With no args, follows all containers of the only pod in the current namespace; lists pod names and exits if there are multiple. With args, passes through to `kubectl logs -f <args>`.
 - **`e`** — exec shell. With no args, drops into `bash` (falling back to `sh`) on the only pod in the current namespace. With args, runs `kubectl exec -it <args> -- bash` then sh.
 
 Both wrap kubectl and forward Ctrl+C cleanly — no `Terminate batch job (Y/N)?` prompt, because they're real `.exe` binaries instead of `.bat` files.
