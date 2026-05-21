@@ -143,7 +143,9 @@ cd kube-shortcuts
 build.cmd
 ```
 
-This is a separate build from the main `build.cmd` (which builds KubeTail.exe). By default it outputs to `%USERPROFILE%\OneDrive\Programs\l.exe` and `e.exe`; override by setting `OUT_DIR` before running.
+This is a separate build from the main `build.cmd` (which builds KubeTail.exe).
+
+On first run it prompts for the output directory (suggesting `%USERPROFILE%\OneDrive\Programs`) and saves the choice to `kube-shortcuts/.outdir` (gitignored) so subsequent runs skip the prompt. If the saved path no longer exists — e.g. the `.outdir` synced via OneDrive from a different machine — the script detects that and re-prompts. You can also set `OUT_DIR` in the environment to override.
 
 ### Project structure
 

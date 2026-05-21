@@ -6,7 +6,47 @@ cd /d "%~dp0"
 set "GO_VERSION=1.26.3"
 set "GO_PORTABLE=%LOCALAPPDATA%\kubetail-go"
 set "GO_PORTABLE_BIN=%GO_PORTABLE%\go\bin\go.exe"
-if "%OUT_DIR%"=="" set "OUT_DIR=%USERPROFILE%\OneDrive\Programs"
+set "OUTDIR_FILE=%~dp0.outdir"
+
+if not "%OUT_DIR%"=="" goto :validate_outdir
+
+if exist "%OUTDIR_FILE%" (
+    for /f "usebackq delims=" %%L in ("%OUTDIR_FILE%") do set "OUT_DIR=%%L"
+)
+if "%OUT_DIR%"=="" goto :prompt_outdir
+if exist "%OUT_DIR%" goto :have_outdir
+echo.
+echo Saved output directory does not exist: %OUT_DIR%
+echo ^(.outdir may be stale from another machine via OneDrive sync.^)
+echo.
+set "OUT_DIR="
+
+:prompt_outdir
+set "OUT_DIR=%USERPROFILE%\OneDrive\Programs"
+set /p "OUT_DIR=Output directory for l.exe and e.exe [%OUT_DIR%]: "
+if "%OUT_DIR%"=="" (
+    echo No directory entered. Aborting.
+    exit /b 1
+)
+> "%OUTDIR_FILE%" echo %OUT_DIR%
+echo Saved to .outdir ^(gitignored^).
+echo.
+
+:validate_outdir
+if exist "%OUT_DIR%" goto :have_outdir
+echo Output directory does not exist: %OUT_DIR%
+choice /C YN /M "Create it now?"
+if errorlevel 2 (
+    echo Aborted.
+    exit /b 1
+)
+mkdir "%OUT_DIR%" 2>nul
+if errorlevel 1 (
+    echo Failed to create %OUT_DIR%.
+    exit /b 1
+)
+
+:have_outdir
 
 set "GO="
 if exist "%GO_PORTABLE_BIN%" (
@@ -41,13 +81,6 @@ set "PATH=%GO_PORTABLE%\go\bin;%PATH%"
 :found_go
 "%GO%" version
 echo.
-
-if not exist "%OUT_DIR%" (
-    echo Output directory does not exist: %OUT_DIR%
-    echo Set OUT_DIR=^<path^> in your environment to override, or create the folder.
-    pause
-    exit /b 1
-)
 
 echo Building l.exe and e.exe to %OUT_DIR% ...
 "%GO%" build -o "%OUT_DIR%\l.exe" .\cmd\l
