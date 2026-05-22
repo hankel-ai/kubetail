@@ -25,6 +25,43 @@ func Pods() ([]string, error) {
 	return strings.Fields(strings.TrimSpace(string(out))), nil
 }
 
+const pickKeys = "1234567890abcdefghijklmnopqrstuvwxyz"
+
+// PickPod prints a single-key menu of pods and reads one keystroke.
+// Returns the chosen pod and true, or "" and false if cancelled (Esc/Ctrl+C/unknown key).
+func PickPod(pods []string) (string, bool) {
+	max := len(pods)
+	if max > len(pickKeys) {
+		max = len(pickKeys)
+	}
+
+	fmt.Fprintln(os.Stderr, "Multiple pods in current namespace; pick one:")
+	for i := 0; i < max; i++ {
+		fmt.Fprintf(os.Stderr, "  [%c] %s\n", pickKeys[i], pods[i])
+	}
+	if len(pods) > max {
+		fmt.Fprintf(os.Stderr, "  (... %d more — specify by name)\n", len(pods)-max)
+	}
+	fmt.Fprint(os.Stderr, "Choice (Esc to cancel): ")
+
+	b, err := ReadSingleKey()
+	fmt.Fprintln(os.Stderr)
+	if err != nil {
+		return "", false
+	}
+	if b == 27 || b == 3 {
+		return "", false
+	}
+	if b >= 'A' && b <= 'Z' {
+		b += 32
+	}
+	idx := strings.IndexByte(pickKeys[:max], b)
+	if idx < 0 {
+		return "", false
+	}
+	return pods[idx], true
+}
+
 func RunKubectl(args ...string) int {
 	fmt.Fprintln(os.Stderr, "+ kubectl "+strings.Join(args, " "))
 

@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"kube-shortcuts/internal/kubeutil"
 )
@@ -39,8 +38,11 @@ func main() {
 	case 1:
 		os.Exit(kubeutil.RunKubectl(logsArgs(50, pods[0])...))
 	default:
-		fmt.Fprintln(os.Stderr, "Multiple pods in current namespace; specify one:")
-		fmt.Fprintln(os.Stderr, "  "+strings.Join(pods, "\n  "))
-		os.Exit(1)
+		pod, ok := kubeutil.PickPod(pods)
+		if !ok {
+			fmt.Fprintln(os.Stderr, "Cancelled.")
+			os.Exit(1)
+		}
+		os.Exit(kubeutil.RunKubectl(logsArgs(50, pod)...))
 	}
 }

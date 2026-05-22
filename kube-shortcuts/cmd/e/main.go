@@ -28,9 +28,18 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	if len(pods) == 1 {
+	switch len(pods) {
+	case 0:
+		fmt.Fprintln(os.Stderr, "No pods found in current namespace.")
+		os.Exit(1)
+	case 1:
 		os.Exit(execInto(pods[0]))
+	default:
+		pod, ok := kubeutil.PickPod(pods)
+		if !ok {
+			fmt.Fprintln(os.Stderr, "Cancelled.")
+			os.Exit(1)
+		}
+		os.Exit(execInto(pod))
 	}
-	fmt.Fprintln(os.Stderr, "Usage: e <pod> [args]  (or run in a namespace with exactly one pod)")
-	os.Exit(1)
 }
