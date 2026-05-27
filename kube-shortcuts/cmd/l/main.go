@@ -23,7 +23,7 @@ func logsArgs(maxLogRequests int, extra ...string) []string {
 
 func main() {
 	if len(os.Args) > 1 {
-		os.Exit(kubeutil.RunKubectl(logsArgs(50, os.Args[1:]...)...))
+		os.Exit(kubeutil.RunKubectlSorted(logsArgs(50, os.Args[1:]...)...))
 	}
 
 	pods, err := kubeutil.Pods()
@@ -36,13 +36,13 @@ func main() {
 		fmt.Fprintln(os.Stderr, "No pods found in current namespace.")
 		os.Exit(1)
 	case 1:
-		os.Exit(kubeutil.RunKubectl(logsArgs(50, pods[0])...))
+		os.Exit(kubeutil.RunKubectlSorted(logsArgs(50, pods[0])...))
 	default:
 		pod, ok := kubeutil.PickPod(pods)
 		if !ok {
 			fmt.Fprintln(os.Stderr, "Cancelled.")
 			os.Exit(1)
 		}
-		os.Exit(kubeutil.RunKubectl(logsArgs(50, pod)...))
+		os.Exit(kubeutil.RunKubectlSorted(logsArgs(50, pod)...))
 	}
 }
