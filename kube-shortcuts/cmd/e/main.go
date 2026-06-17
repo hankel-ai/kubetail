@@ -3,16 +3,32 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"kube-shortcuts/internal/kubeutil"
 )
 
+// bashFailFast bounds how quickly a failed `bash` attempt must return for us to
+// treat it as "bash isn't in this image" and fall back to `sh`. A longer-lived
+// session that exits non-zero (you ran `exit 1`, hit Ctrl+C, or the last command
+// failed) is a real session, not a missing shell — don't drop into sh after it.
+const bashFailFast = 5 * time.Second
+
 func execInto(target ...string) int {
 	bash := append([]string{"exec", "-it"}, target...)
 	bash = append(bash, "--", "bash")
-	if rc := kubeutil.RunKubectl(bash...); rc == 0 {
+
+	start := time.Now()
+	rc := kubeutil.RunKubectl(bash...)
+	if rc == 0 {
 		return 0
 	}
+	if time.Since(start) >= bashFailFast {
+		// bash ran for a while before exiting non-zero: a real session, not a
+		// missing shell. Propagate its exit code instead of falling back.
+		return rc
+	}
+
 	sh := append([]string{"exec", "-it"}, target...)
 	sh = append(sh, "--", "sh")
 	return kubeutil.RunKubectl(sh...)
