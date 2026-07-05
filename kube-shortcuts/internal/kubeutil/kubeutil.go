@@ -81,8 +81,16 @@ func extractTimestamp(line string) string {
 }
 
 func RunKubectlSorted(args ...string) int {
+	code, _ := runKubectlSorted(args...)
+	return code
+}
+
+// runKubectlSorted runs kubectl, sorts buffered output by timestamp, and reports
+// both the exit code and whether any stdout line was actually emitted.
+func runKubectlSorted(args ...string) (int, bool) {
 	fmt.Fprintln(os.Stderr, "+ kubectl "+strings.Join(args, " "))
 
+	produced := false
 	cmd := kubectlCmd(args...)
 	cmd.Stdin = os.Stdin
 	cmd.Stderr = os.Stderr
@@ -90,7 +98,7 @@ func RunKubectlSorted(args ...string) int {
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
-		return 1
+		return 1, produced
 	}
 
 	sigCh := make(chan os.Signal, 1)
@@ -103,7 +111,7 @@ func RunKubectlSorted(args ...string) int {
 
 	if err := cmd.Start(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
-		return 1
+		return 1, produced
 	}
 
 	lineCh := make(chan string)
@@ -144,6 +152,7 @@ func RunKubectlSorted(args ...string) int {
 				flush()
 				goto done
 			}
+			produced = true
 			buf = append(buf, line)
 			if !timer.Stop() {
 				select {
@@ -159,12 +168,48 @@ func RunKubectlSorted(args ...string) int {
 done:
 	if err := cmd.Wait(); err != nil {
 		if ee, ok := err.(*exec.ExitError); ok {
-			return ee.ExitCode()
+			return ee.ExitCode(), produced
 		}
 		fmt.Fprintln(os.Stderr, err)
-		return 1
+		return 1, produced
 	}
-	return 0
+	return 0, produced
+}
+
+// RunKubectlLogsWithRetry runs a `kubectl logs` command, retrying while the pod
+// is not ready yet — i.e. kubectl exits non-zero before streaming any log line
+// (ContainerCreating, PodInitializing, etc.). Retrying stops as soon as any
+// output has streamed, on a clean exit, on Ctrl+C, or after maxWait elapses.
+func RunKubectlLogsWithRetry(args ...string) int {
+	const (
+		retryInterval = 2 * time.Second
+		maxWait       = 5 * time.Minute
+	)
+	deadline := time.Now().Add(maxWait)
+
+	for {
+		code, produced := runKubectlSorted(args...)
+		// Success, or the stream started (a real disconnect, not a not-ready pod).
+		if code == 0 || produced {
+			return code
+		}
+		if time.Now().After(deadline) {
+			return code
+		}
+
+		fmt.Fprintf(os.Stderr, "Pod not ready yet; retrying in %s... (Ctrl+C to stop)\n", retryInterval)
+
+		sig := make(chan os.Signal, 1)
+		signal.Notify(sig, os.Interrupt)
+		select {
+		case <-time.After(retryInterval):
+			signal.Stop(sig)
+		case <-sig:
+			signal.Stop(sig)
+			fmt.Fprintln(os.Stderr, "Cancelled.")
+			return code
+		}
+	}
 }
 
 func RunKubectl(args ...string) int {
