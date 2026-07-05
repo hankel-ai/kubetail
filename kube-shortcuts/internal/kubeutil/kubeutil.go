@@ -152,7 +152,9 @@ func runKubectlSorted(args ...string) (int, bool) {
 				flush()
 				goto done
 			}
-			produced = true
+			if strings.TrimSpace(line) != "" {
+				produced = true
+			}
 			buf = append(buf, line)
 			if !timer.Stop() {
 				select {
