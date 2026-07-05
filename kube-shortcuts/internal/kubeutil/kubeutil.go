@@ -152,9 +152,9 @@ func runKubectlSorted(args ...string) (int, bool) {
 				flush()
 				goto done
 			}
-			if strings.TrimSpace(line) != "" {
+			trimmed := strings.TrimSpace(line)
+			if trimmed != "" && !strings.HasPrefix(trimmed, "error:") {
 				produced = true
-				fmt.Fprintf(os.Stderr, "[l-debug] stdout line: %q\n", line)
 			}
 			buf = append(buf, line)
 			if !timer.Stop() {
@@ -189,11 +189,8 @@ func RunKubectlLogsWithRetry(args ...string) int {
 	)
 	deadline := time.Now().Add(maxWait)
 
-	attempt := 0
 	for {
-		attempt++
 		code, produced := runKubectlSorted(args...)
-		fmt.Fprintf(os.Stderr, "[l-debug] attempt=%d exit=%d produced=%v\n", attempt, code, produced)
 		if produced {
 			return code
 		}
