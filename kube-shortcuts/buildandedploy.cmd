@@ -97,6 +97,10 @@ taskkill /IM e.exe /F >nul 2>&1
 taskkill /IM kk.exe /F >nul 2>&1
 del "%OUT_DIR%\l.exe~" "%OUT_DIR%\e.exe~" "%OUT_DIR%\kk.exe~" >nul 2>&1
 
+echo Cleaning build cache ...
+"%GO%" clean -cache
+echo.
+
 echo Building l.exe, e.exe and kk.exe to %OUT_DIR% ...
 "%GO%" build -o "%OUT_DIR%\l.exe" .\cmd\l
 if errorlevel 1 (
