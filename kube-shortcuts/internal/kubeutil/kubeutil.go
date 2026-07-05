@@ -186,8 +186,11 @@ func RunKubectlLogsWithRetry(args ...string) int {
 	)
 	deadline := time.Now().Add(maxWait)
 
+	attempt := 0
 	for {
+		attempt++
 		code, produced := runKubectlSorted(args...)
+		fmt.Fprintf(os.Stderr, "[l-debug] attempt=%d exit=%d produced=%v\n", attempt, code, produced)
 		if produced {
 			return code
 		}
