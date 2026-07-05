@@ -177,9 +177,8 @@ done:
 }
 
 // RunKubectlLogsWithRetry runs a `kubectl logs` command, retrying while the pod
-// is not ready yet — i.e. kubectl exits non-zero before streaming any log line
-// (ContainerCreating, PodInitializing, etc.). Retrying stops as soon as any
-// output has streamed, on a clean exit, on Ctrl+C, or after maxWait elapses.
+// is not ready yet. With --ignore-errors kubectl may exit 0 even when containers
+// aren't ready, so we retry whenever no log lines were actually streamed.
 func RunKubectlLogsWithRetry(args ...string) int {
 	const (
 		retryInterval = 2 * time.Second
@@ -189,8 +188,7 @@ func RunKubectlLogsWithRetry(args ...string) int {
 
 	for {
 		code, produced := runKubectlSorted(args...)
-		// Success, or the stream started (a real disconnect, not a not-ready pod).
-		if code == 0 || produced {
+		if produced {
 			return code
 		}
 		if time.Now().After(deadline) {
