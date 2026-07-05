@@ -154,6 +154,7 @@ func runKubectlSorted(args ...string) (int, bool) {
 			}
 			if strings.TrimSpace(line) != "" {
 				produced = true
+				fmt.Fprintf(os.Stderr, "[l-debug] stdout line: %q\n", line)
 			}
 			buf = append(buf, line)
 			if !timer.Stop() {
