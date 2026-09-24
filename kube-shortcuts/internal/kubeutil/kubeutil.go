@@ -21,7 +21,9 @@ func kubectlCmd(args ...string) *exec.Cmd {
 }
 
 func Pods() ([]string, error) {
-	out, err := kubectlCmd("get", "pods", "-o", "jsonpath={.items[*].metadata.name}").Output()
+	out, err := kubectlCmd("get", "pods",
+		"--field-selector", "status.phase!=Succeeded,status.phase!=Failed",
+		"-o", "jsonpath={.items[*].metadata.name}").Output()
 	if err != nil {
 		return nil, err
 	}
