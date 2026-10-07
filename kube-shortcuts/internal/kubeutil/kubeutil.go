@@ -2,6 +2,7 @@ package kubeutil
 
 import (
 	"bufio"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -35,19 +36,75 @@ const pickKeys = "1234567890abcdefghijklmnopqrstuvwxyz"
 // PickPod prints a single-key menu of pods and reads one keystroke.
 // Returns the chosen pod and true, or "" and false if cancelled (Esc/Ctrl+C/unknown key).
 func PickPod(pods []string) (string, bool) {
-	max := len(pods)
+	return pick("Multiple pods in current namespace; pick one:", pods, -1)
+}
+
+// Containers returns the regular (non-init, non-ephemeral) container names of a
+// pod and the index of its default container: the one named by the
+// kubectl.kubernetes.io/default-container annotation, else the first.
+func Containers(pod string) ([]string, int, error) {
+	out, err := kubectlCmd("get", "pod", pod, "-o", "json").Output()
+	if err != nil {
+		return nil, 0, err
+	}
+	var p struct {
+		Metadata struct {
+			Annotations map[string]string `json:"annotations"`
+		} `json:"metadata"`
+		Spec struct {
+			Containers []struct {
+				Name string `json:"name"`
+			} `json:"containers"`
+		} `json:"spec"`
+	}
+	if err := json.Unmarshal(out, &p); err != nil {
+		return nil, 0, err
+	}
+	names := make([]string, len(p.Spec.Containers))
+	def := 0
+	want := p.Metadata.Annotations["kubectl.kubernetes.io/default-container"]
+	for i, c := range p.Spec.Containers {
+		names[i] = c.Name
+		if c.Name == want {
+			def = i
+		}
+	}
+	return names, def, nil
+}
+
+// PickContainer prints a single-key menu of containers with the default marked
+// by an asterisk. Enter selects the default.
+func PickContainer(pod string, containers []string, def int) (string, bool) {
+	return pick(fmt.Sprintf("Multiple containers in %s; pick one:", pod), containers, def)
+}
+
+// pick prints a single-key menu and reads one keystroke. def is the index Enter
+// selects and is marked with '*'; pass -1 for no default (Enter cancels).
+func pick(header string, items []string, def int) (string, bool) {
+	max := len(items)
 	if max > len(pickKeys) {
 		max = len(pickKeys)
 	}
+	if def >= max {
+		def = -1
+	}
 
-	fmt.Fprintln(os.Stderr, "Multiple pods in current namespace; pick one:")
+	fmt.Fprintln(os.Stderr, header)
 	for i := 0; i < max; i++ {
-		fmt.Fprintf(os.Stderr, "  [%c] %s\n", pickKeys[i], pods[i])
+		mark := ' '
+		if i == def {
+			mark = '*'
+		}
+		fmt.Fprintf(os.Stderr, " %c[%c] %s\n", mark, pickKeys[i], items[i])
 	}
-	if len(pods) > max {
-		fmt.Fprintf(os.Stderr, "  (... %d more — specify by name)\n", len(pods)-max)
+	if len(items) > max {
+		fmt.Fprintf(os.Stderr, "  (... %d more — specify by name)\n", len(items)-max)
 	}
-	fmt.Fprint(os.Stderr, "Choice (Esc to cancel): ")
+	if def >= 0 {
+		fmt.Fprint(os.Stderr, "Choice (Enter for *, Esc to cancel): ")
+	} else {
+		fmt.Fprint(os.Stderr, "Choice (Esc to cancel): ")
+	}
 
 	b, err := ReadSingleKey()
 	fmt.Fprintln(os.Stderr)
@@ -57,6 +114,9 @@ func PickPod(pods []string) (string, bool) {
 	if b == 27 || b == 3 {
 		return "", false
 	}
+	if (b == '\r' || b == '\n') && def >= 0 {
+		return items[def], true
+	}
 	if b >= 'A' && b <= 'Z' {
 		b += 32
 	}
@@ -64,7 +124,7 @@ func PickPod(pods []string) (string, bool) {
 	if idx < 0 {
 		return "", false
 	}
-	return pods[idx], true
+	return items[idx], true
 }
 
 func extractTimestamp(line string) string {

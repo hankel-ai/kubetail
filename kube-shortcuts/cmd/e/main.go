@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"kube-shortcuts/internal/kubeutil"
@@ -34,7 +35,27 @@ func execInto(target ...string) int {
 	return kubeutil.RunKubectl(sh...)
 }
 
+// execIntoPod prompts for a container when the pod has more than one (Enter
+// picks the default, marked '*'), then execs into it.
+func execIntoPod(pod string) int {
+	containers, def, err := kubeutil.Containers(pod)
+	if err != nil || len(containers) < 2 {
+		// Lookup failed or single container: let kubectl resolve it (and report
+		// a missing pod itself).
+		return execInto(pod)
+	}
+	c, ok := kubeutil.PickContainer(pod, containers, def)
+	if !ok {
+		fmt.Fprintln(os.Stderr, "Cancelled.")
+		return 1
+	}
+	return execInto(pod, "-c", c)
+}
+
 func main() {
+	if len(os.Args) == 2 && !strings.HasPrefix(os.Args[1], "-") {
+		os.Exit(execIntoPod(os.Args[1]))
+	}
 	if len(os.Args) > 1 {
 		os.Exit(execInto(os.Args[1:]...))
 	}
@@ -49,13 +70,13 @@ func main() {
 		fmt.Fprintln(os.Stderr, "No pods found in current namespace.")
 		os.Exit(1)
 	case 1:
-		os.Exit(execInto(pods[0]))
+		os.Exit(execIntoPod(pods[0]))
 	default:
 		pod, ok := kubeutil.PickPod(pods)
 		if !ok {
 			fmt.Fprintln(os.Stderr, "Cancelled.")
 			os.Exit(1)
 		}
-		os.Exit(execInto(pod))
+		os.Exit(execIntoPod(pod))
 	}
 }
